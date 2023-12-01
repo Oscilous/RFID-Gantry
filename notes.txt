@@ -1,0 +1,11 @@
+y = 340 mm
+x = 250 mm
+
+y = 67500 steps
+x = 10000 steps
+
+1 step of y is 340 mm / 67500 = 0.005 mm
+1 step of x is 250 mm / 10000 = 0.025 mm
+
+Pixel buffer is 1mm 1 pixel
+so 340x250 pixels
