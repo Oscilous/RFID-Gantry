@@ -1,5 +1,7 @@
 #define POSITIVE 1
 #define NEGATIVE 0
+#define MAX_X 250
+#define MAX_Y 340
 
 const int TIME = 100;
 
@@ -37,10 +39,7 @@ void loop() {
     auto_home();
   }
   else if (incomingByte == 50){ //50 is ascii for 2
-    for (int j = 1; j<10;j++){
-      move_stepper(StepY, POSITIVE, 1, 200);
-      delay(100);
-    }
+    scan(2);
   }
 }
 
@@ -113,7 +112,7 @@ void move_stepper(int axis, char direction, long int steps, int speed){
 }
 
 void send_current_pos(void){
-  for (int i = 0; i<3; i++){
+  for (int i = 0; i<1; i++){
     Serial.print("x=");
     Serial.print(int(currentX));
     Serial.print(";");
@@ -121,6 +120,26 @@ void send_current_pos(void){
     Serial.print(int(currentY));
     Serial.print(";");
     Serial.print("r=255;g=255;b=255");
-    Serial.println("$");
+    Serial.print("$");
   }
 }
+
+void scan(int width){
+  width = 170 / width;
+  for (int i = 0; i < (MAX_Y / width / 2); i++){
+    for (int j = 0; j < MAX_X - 1;j++){
+      move_stepper(StepX, POSITIVE, 1, 200);
+    }
+    for (int j = 0; j < width; j++){
+      move_stepper(StepY, POSITIVE, 1, 200);
+    }
+    for (int j = 0; j < MAX_X - 1;j++){
+      move_stepper(StepX, NEGATIVE, 1, 200);
+    }
+    for (int j = 0; j < width; j++){
+      move_stepper(StepY, POSITIVE, 1, 200);
+    }
+  }
+}
+
+

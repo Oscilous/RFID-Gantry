@@ -23,6 +23,8 @@ clock = pygame.time.Clock()
 framebuffer = pygame.Surface((fixed_width, fixed_height))
 framebuffer.fill((0, 0, 0))
 
+buffer = ""
+
 def draw_pixel(x, y, r, g, b):
     try:
         # Set the pixel color in the framebuffer
@@ -41,16 +43,22 @@ def send_scan_command():
 
 # Main loop
 def main_loop():
+    global buffer
     try:
         # Read data from the Arduino in a non-blocking manner
         data = ser.read(ser.in_waiting).decode()
+        buffer += data
+        # Check if a complete message is received
+        if '$' in buffer:
+            messages = buffer.split('$')
 
-        # Split received data into messages
-        messages = data.split('$')
-
-        # Process each complete message
-        for message in messages[:-1]:
-            process_message(message + '$')
+            # Process each complete message
+            for msg in messages[:-1]:
+                # Do something with the message
+                print("Received message:", msg)
+                process_message(msg + '$')
+            # Update the buffer with the remaining incomplete message
+            buffer = messages[-1]
 
     except serial.SerialTimeoutException:
         # Handle timeout exception
@@ -71,7 +79,6 @@ def process_message(data):
     if data.startswith('x=') and data.endswith('$'):
         # Extract values of x, y, r, g, and b from the received data
         match = re.match(r'x=(\d+);y=(\d+);r=(\d+);g=(\d+);b=(\d+)', data)
-        print(match)
         if match:
             x, y, r, g, b = map(int, match.groups())
             draw_pixel(x, y, r, g, b)
