@@ -9,3 +9,7 @@ x = 10000 steps
 
 Pixel buffer is 1mm 1 pixel
 so 340x250 pixels
+
+
+scanning speed up-
+start and stoping scanning doesn't seem to improve

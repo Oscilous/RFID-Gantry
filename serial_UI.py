@@ -6,16 +6,21 @@ import re
 import time
 
 # Set up the serial connection
-ser = serial.Serial('COM8', 9600, timeout=0)  # Set timeout to 0 for non-blocking
+ser = serial.Serial('COM8', 115200, timeout=0)  # Set timeout to 0 for non-blocking
+data = ""
+while data != "begin":
+    if data != "":
+        print(data)
+    data = ser.readline().decode('utf-8').rstrip()  # read data from serial and decode it
 # Initialize Pygame
 pygame.init()
 
 # Set up the fixed display resolution
 fixed_width, fixed_height = 250, 340
-
+scale = 2
 # Set up the display
-window_size = (fixed_width, fixed_height)  # Set the desired window size
-screen = pygame.display.set_mode(window_size)
+window_size = (fixed_width * scale, fixed_height * scale)  # Set the desired window size
+screen = pygame.display.set_mode((fixed_width, fixed_height),flags = pygame.SCALED)
 pygame.display.set_caption('Arduino Serial Communication')
 clock = pygame.time.Clock()
 

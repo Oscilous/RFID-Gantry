@@ -32,8 +32,18 @@ void setup()
 
   nano.setRegion(REGION_NORTHAMERICA); //Set to North America
 
-  nano.setReadPower(1000); // 500 = 5.00 dBm. Higher values may caues USB port to brown out
+  nano.setReadPower(2000); // 500 = 5.00 dBm. Higher values may caues USB port to brown out
   //Max Read TX Power is 2700 = 27.00 dBm and may cause temperature-limit throttling
+
+  int8_t t = nano.getTemp();
+
+  if (t == -1 ){
+      Serial.println(F("Error getting Nano internal temperature"));
+  }
+  else {
+    Serial.print(F("Nano internal temperature (*C): "));
+    Serial.println(t);
+  }
 
   Serial.println(F("Press a key to begin scanning for tags."));
   while (!Serial.available()); //Wait for user to send a character
@@ -46,55 +56,64 @@ void loop()
 {
   if (nano.check() == true) //Check to see if any new data has come in from module
   {
-    byte responseType = nano.parseResponse(); //Break response into tag ID, RSSI, frequency, and timestamp
-
-    if (responseType == RESPONSE_IS_KEEPALIVE)
-    {
-      Serial.println(F("Scanning"));
-    }
-    else if (responseType == RESPONSE_IS_TAGFOUND)
-    {
-      //If we have a full record we can pull out the fun bits
-      int rssi = nano.getTagRSSI(); //Get the RSSI for this tag read
-
-      long freq = nano.getTagFreq(); //Get the frequency this tag was detected at
-
-      long timeStamp = nano.getTagTimestamp(); //Get the time this was read, (ms) since last keep-alive message
-
-      byte tagEPCBytes = nano.getTagEPCBytes(); //Get the number of bytes of EPC from response
-
-      Serial.print(F(" rssi["));
-      Serial.print(rssi);
-      Serial.print(F("]"));
-
-      Serial.print(F(" freq["));
-      Serial.print(freq);
-      Serial.print(F("]"));
-
-      Serial.print(F(" time["));
-      Serial.print(timeStamp);
-      Serial.print(F("]"));
-
-      //Print EPC bytes, this is a subsection of bytes from the response/msg array
-      Serial.print(F(" epc["));
-      for (byte x = 0 ; x < tagEPCBytes ; x++)
+    nano.stopReading(); //Begin scanning for tags
+    Serial.println(F("Press a key to begin scanning for tags."));
+    while (!Serial.available()); //Wait for user to send a character
+    Serial.read(); //Throw away the user's character
+    nano.startReading(); //Begin scanning for tags
+    if (nano.check() == true) //Check to see if any new data has come in from module
       {
-        if (nano.msg[31 + x] < 0x10) Serial.print(F("0")); //Pretty print
-        Serial.print(nano.msg[31 + x], HEX);
-        Serial.print(F(" "));
-      }
-      Serial.print(F("]"));
+      for (int i = 0; i < 5; i++){
+        byte responseType = nano.parseResponse(); //Break response into tag ID, RSSI, frequency, and timestamp
+      
+        if (responseType == RESPONSE_IS_KEEPALIVE)
+        {
+          Serial.println(F("Scanning"));
+        }
+        else if (responseType == RESPONSE_IS_TAGFOUND)
+        {
+          //If we have a full record we can pull out the fun bits
+          int rssi = nano.getTagRSSI(); //Get the RSSI for this tag read
 
-      Serial.println();
-    }
-    else if (responseType == ERROR_CORRUPT_RESPONSE)
-    {
-      Serial.println("Bad CRC");
-    }
-    else
-    {
-      //Unknown response
-      Serial.print("Unknown error");
+          long freq = nano.getTagFreq(); //Get the frequency this tag was detected at
+
+          long timeStamp = nano.getTagTimestamp(); //Get the time this was read, (ms) since last keep-alive message
+
+          byte tagEPCBytes = nano.getTagEPCBytes(); //Get the number of bytes of EPC from response
+
+          Serial.print(F(" rssi["));
+          Serial.print(rssi);
+          Serial.print(F("]"));
+
+          Serial.print(F(" freq["));
+          Serial.print(freq);
+          Serial.print(F("]"));
+
+          Serial.print(F(" time["));
+          Serial.print(timeStamp);
+          Serial.print(F("]"));
+
+          //Print EPC bytes, this is a subsection of bytes from the response/msg array
+          Serial.print(F(" epc["));
+          for (byte x = 0 ; x < tagEPCBytes ; x++)
+          {
+            if (nano.msg[31 + x] < 0x10) Serial.print(F("0")); //Pretty print
+            Serial.print(nano.msg[31 + x], HEX);
+            Serial.print(F(" "));
+          }
+          Serial.print(F("]"));
+
+          Serial.println();
+        }
+        else if (responseType == ERROR_CORRUPT_RESPONSE)
+        {
+          Serial.println("Bad CRC");
+        }
+        else
+        {
+          //Unknown response
+          Serial.print("Unknown error");
+        }
     }
   }
 }
