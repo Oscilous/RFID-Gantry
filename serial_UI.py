@@ -45,6 +45,10 @@ def send_home_command():
 def send_scan_command():
     ser.write(b'2')
     time.sleep(1)
+# Function to send "3" to COM8 (Scan command)
+def send_read_RFID_command():
+    ser.write(b'3')
+    time.sleep(1)
 
 # Main loop
 def main_loop():
@@ -101,6 +105,9 @@ auto_home_button.grid(row=0, column=1, padx=10, pady=10)
 # Create Scan button
 scan_button = ttk.Button(root, text='Scan', command=send_scan_command)
 scan_button.grid(row=1, column=1, padx=10, pady=10)
+
+read_RFID_button = ttk.Button(root, text='Read RFID', command=send_read_RFID_command)
+read_RFID_button.grid(row=2, column=1, padx=10, pady=10)
 
 # Schedule the main loop to run initially
 root.after(10, main_loop)

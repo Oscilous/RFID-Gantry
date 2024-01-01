@@ -6,10 +6,10 @@
 #define NEGATIVE -1
 #define MAX_X 250
 #define MAX_Y 340
-#define SCAN_AMOUNT 1
+#define SCAN_AMOUNT 3
 #define RFID_STRENGHT 2000
-#define SEARCH_GRID_X 5
-#define SEARCH_GRID_Y 5
+#define SCAN_GRID_X 5
+#define SCAN_GRID_Y 5
 
 //Denominators
 //For 250: 1, 2, 5, 10, 25, 50, 125, 250
@@ -38,10 +38,27 @@ void setup_RFID(void);
 int read_tags(void);
 int process_signal_strenght(int value);
 void deep_search(void);
+void move_to_position(int x, int y);
+void enqueue_adjacent_positions(int x, int y);
+void bfs_step();
+bool isQueueEmpty();
+bool dequeue(int &x, int &y);
+void enqueue(int x, int y);
 
 //RFID
 SoftwareSerial softSerial(12, 13); //RX, TX
 RFID nano; //Create instance
+
+//BFS
+const int QUEUE_SIZE = 100;
+int queueX[QUEUE_SIZE];
+int queueY[QUEUE_SIZE];
+int front = 0, rear = -1;
+const int BUFFER_SIZE_X = 25;
+const int BUFFER_SIZE_Y = 25;
+bool signalBuffer[BUFFER_SIZE_X][BUFFER_SIZE_Y] = {false};
+int bufferOffsetX = 0;
+int bufferOffsetY = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -58,7 +75,8 @@ void setup() {
   setup_RFID();
   Serial.print("RFID temp: ");
   Serial.println(nano.getTemp());
-  nano.stopReading();
+  nano.startReading();
+  delayMicroseconds(1000);
   Serial.print("begin");
 }
 
@@ -68,14 +86,10 @@ void loop() {
     auto_home();
   }
   else if (incomingByte == 50){ //50 is ascii for 2
-    nano.startReading();
     search(2);
-    nano.stopReading();
   }
   else if (incomingByte == 51){ //51 is ascii for 3
-    Serial.print("Reading");
-    int signal_strenght = read_tags();
-    Serial.print("Stopped");
+    Serial.print(read_tags());
   }
 }
 
@@ -161,13 +175,13 @@ void send_current_pos(){
 }
 
 void search(int width){
-  int x_gap = MAX_X / SEARCH_GRID_X;
-  int y_gap = MAX_Y / SEARCH_GRID_Y;
+  int x_gap = MAX_X / SCAN_GRID_X;
+  int y_gap = MAX_Y / SCAN_GRID_Y;
   int tag_found = 0;
   for (int j = 0; j < x_gap - 1;j++){
       move_stepper(StepX, POSITIVE, 1, 200);
   }
-  for(int k=0; k < ((SEARCH_GRID_Y - 1) / 2);k++){
+  for(int k=0; k < ((SCAN_GRID_Y - 1) / 2);k++){
     for (int j = 0; j < y_gap - 1;j++){
         move_stepper(StepY, POSITIVE, 1, 200);
     }
@@ -177,7 +191,7 @@ void search(int width){
       break;
     }
     //Start grid
-    for (int i = 0; i < SEARCH_GRID_X - 2;i++){
+    for (int i = 0; i < SCAN_GRID_X - 2;i++){
       for (int j = 0; j < x_gap - 1;j++){
           move_stepper(StepX, POSITIVE, 1, 200);
       } 
@@ -197,7 +211,7 @@ void search(int width){
       tag_found = 1;
       break;
     }
-    for (int i = 0; i < SEARCH_GRID_X - 2;i++){
+    for (int i = 0; i < SCAN_GRID_X - 2;i++){
       for (int j = 0; j < x_gap - 1;j++){
           move_stepper(StepX, NEGATIVE, 1, 200);
       } 
@@ -212,10 +226,113 @@ void search(int width){
   }
   read_tags();
   deep_search();
+  Serial.print("$TAG FOUND$");
 }
 
-void deep_search(void) {
-  
+void deep_search() {
+    bufferOffsetX = int(currentX) - BUFFER_SIZE_X / 2;
+    bufferOffsetY = int(currentY) - BUFFER_SIZE_Y / 2;
+
+    // Ensure the offset is within the bounds of the larger area
+    bufferOffsetX = max(0, min(bufferOffsetX, MAX_X - BUFFER_SIZE_X));
+    bufferOffsetY = max(0, min(bufferOffsetY, MAX_Y - BUFFER_SIZE_Y));
+
+    // Clear the signal buffer
+    for (int i = 0; i < BUFFER_SIZE_X; i++) {
+        for (int j = 0; j < BUFFER_SIZE_Y; j++) {
+            signalBuffer[i][j] = false;
+        }
+    }
+
+    // Calculate buffer indices for currentX and currentY
+    int bufferIndexX = int(currentX) - bufferOffsetX;
+    int bufferIndexY = int(currentY) - bufferOffsetY;
+
+    // Check if buffer indices are within buffer bounds
+    if (bufferIndexX >= 0 && bufferIndexX < BUFFER_SIZE_X && 
+        bufferIndexY >= 0 && bufferIndexY < BUFFER_SIZE_Y) {
+        
+        // Start BFS from the current position
+        enqueue(int(currentX), int(currentY));
+        signalBuffer[bufferIndexX][bufferIndexY] = true;
+
+        while (!isQueueEmpty()) {
+            bfs_step(bufferOffsetX, bufferOffsetY);
+        }
+    }
+}
+
+void bfs_step(int bufferOffsetX, int bufferOffsetY) {
+    int x, y;
+    if (dequeue(x, y)) {
+        move_to_position(x, y);
+
+        int gridX = x - bufferOffsetX;
+        int gridY = y - bufferOffsetY;
+
+        // Check if the position is within the buffer and hasn't been checked before
+        if (gridX >= 0 && gridX < BUFFER_SIZE_X && gridY >= 0 && gridY < BUFFER_SIZE_Y && 
+            !signalBuffer[gridX][gridY]) {
+
+            // Call read_tags only if the tile hasn't had a signal before
+            if (read_tags() != 0) {
+                // Enqueue adjacent positions
+                enqueue_adjacent_positions(x, y, bufferOffsetX, bufferOffsetY);
+            }
+        }
+    }
+}
+
+void enqueue_adjacent_positions(int x, int y, int bufferOffsetX, int bufferOffsetY) {
+    if (x > 0) enqueue(x - 1, y);
+    if (x < MAX_X - 1) enqueue(x + 1, y);
+    if (y > 0) enqueue(x, y - 1);
+    if (y < MAX_Y - 1) enqueue(x, y + 1);
+}
+
+void move_to_position(int x, int y) {
+    // Calculate the number of steps needed to move to the new position
+    int steps_x = x - currentX;
+    int steps_y = y - currentY;
+
+    // Move in X direction
+    if (steps_x != 0) {
+        int dir = (steps_x > 0) ? POSITIVE : NEGATIVE;
+        move_stepper(StepX, dir, abs(steps_x), 200);
+    }
+
+    // Move in Y direction
+    if (steps_y != 0) {
+        int dir = (steps_y > 0) ? POSITIVE : NEGATIVE;
+        move_stepper(StepY, dir, abs(steps_y), 200);
+    }
+
+    // Update current position
+    currentX = x;
+    currentY = y;
+}
+
+void enqueue(int x, int y) {
+    if (rear < QUEUE_SIZE - 1) {
+        rear++;
+        queueX[rear] = x;
+        queueY[rear] = y;
+    } else {
+        // Handle queue overflow
+    }
+}
+bool dequeue(int &x, int &y) {
+    if (front <= rear) {
+        x = queueX[front];
+        y = queueY[front];
+        front++;
+        return true;
+    }
+    return false; // Queue is empty
+}
+
+bool isQueueEmpty() {
+    return front > rear;
 }
 
 //Gracefully handles a reader that is already configured and already reading continuously
@@ -316,6 +433,13 @@ int read_tags(void){
     }
     rssi_buffer = process_signal_strenght(rssi_buffer);
     if (rssi_buffer != 0){
+      int gridX = int(currentX) - bufferOffsetX;
+      int gridY = int(currentY) - bufferOffsetY;
+
+      // Ensure indices are within buffer bounds
+      if (gridX >= 0 && gridX < BUFFER_SIZE_X && gridY >= 0 && gridY < BUFFER_SIZE_Y) {
+          signalBuffer[gridX][gridY] = true;
+      }
       Serial.print("x=");
       Serial.print(int(currentX));
       Serial.print(";");

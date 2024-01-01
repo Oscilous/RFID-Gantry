@@ -17,6 +17,7 @@
 SoftwareSerial softSerial(12, 13); //RX, TX
 
 #include "SparkFun_UHF_RFID_Reader.h" //Library for controlling the M6E Nano module
+boolean setupNano(long baudRate);
 RFID nano; //Create instance
 
 void setup()
@@ -56,11 +57,9 @@ void loop()
 {
   if (nano.check() == true) //Check to see if any new data has come in from module
   {
-    nano.stopReading(); //Begin scanning for tags
     Serial.println(F("Press a key to begin scanning for tags."));
     while (!Serial.available()); //Wait for user to send a character
     Serial.read(); //Throw away the user's character
-    nano.startReading(); //Begin scanning for tags
     if (nano.check() == true) //Check to see if any new data has come in from module
       {
       for (int i = 0; i < 5; i++){
@@ -116,6 +115,7 @@ void loop()
         }
     }
   }
+}
 }
 
 //Gracefully handles a reader that is already configured and already reading continuously
