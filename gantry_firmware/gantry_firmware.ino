@@ -2,7 +2,8 @@
 #include "SparkFun_UHF_RFID_Reader.h" //Library for controlling the M6E Nano module
 
 #define POSITIVE 1
-#define NEGATIVE 0
+#define HOLD 0
+#define NEGATIVE -1
 #define MAX_X 250
 #define MAX_Y 340
 #define SCAN_AMOUNT 1
@@ -98,7 +99,7 @@ void auto_home(void){
   send_current_pos();
 }
 
-void move_stepper(int axis, char direction, long int steps, int speed){
+void move_stepper(int axis, int direction, long int steps, int speed){
   if (direction == 1 && axis == StepX){
     if (currentX + steps > 10000){
       Serial.println("Out of bounds");
@@ -107,7 +108,7 @@ void move_stepper(int axis, char direction, long int steps, int speed){
     digitalWrite(DirX, HIGH); // set direction, HIGH for clockwise (positive x, neg for y), LOW for anticlockwise 
     currentX = currentX + steps;
   }
-  else if (direction == 0 && axis == StepX){
+  else if (direction == -1 && axis == StepX){
     if (currentX - steps < 0){
       Serial.println("Out of bounds");
       return;
@@ -123,7 +124,7 @@ void move_stepper(int axis, char direction, long int steps, int speed){
     digitalWrite(DirY, LOW); // set direction, HIGH for clockwise (positive x, neg for y), LOW for anticlockwise 
     currentY = currentY + steps;
   }
-  else if (direction == 0 && axis == StepY){
+  else if (direction == -1 && axis == StepY){
     if (currentY - steps < 0){
       Serial.println("Out of bounds");
       return;
@@ -215,20 +216,6 @@ void search(int width){
 
 void deep_search(void) {
   
-  move_stepper(StepY, POSITIVE, 1, 200);
-  if (read_tags() == 0){
-    move_stepper(StepX, POSITIVE, 1, 200);
-    if (read_tags() == 0){
-      move_stepper(StepY, NEGATIVE, 1, 200);
-      if (read_tags() == 0){
-        move_stepper(StepX, NEGATIVE, 1, 200);
-        if (read_tags() == 0){
-          move_stepper(StepY, NEGATIVE, 1, 200);
-        }
-      }
-    }
-  }
-  read_tags();
 }
 
 //Gracefully handles a reader that is already configured and already reading continuously
